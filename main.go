@@ -39,7 +39,7 @@
 // 	protoc --go_out=output_directory input_directory/file.proto
 // to generate Go bindings for the protocol defined by file.proto.
 // With that input, the output will be written to
-// 	output_directory/file.pb.go
+// 	output_directory/file.ts
 //
 // The generated code is documented in the package comment for
 // the library.
@@ -53,7 +53,7 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/generator"
+	"github.com/enjoypi/protoc-gen-ts/generator"
 )
 
 func main() {
