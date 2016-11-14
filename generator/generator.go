@@ -1180,15 +1180,6 @@ func (g *Generator) generate(file *FileDescriptor) {
 		}
 		g.generateMessage(desc)
 	}
-	for _, ext := range g.file.ext {
-		g.generateExtension(ext)
-	}
-	g.generateInitFunction()
-
-	// Run the plugins before the imports so we know which imports are necessary.
-	g.runPlugins(file)
-
-	g.generateFileDescriptor(file)
 
 	// Generate header and imports last, though they appear first in the output.
 	rem := g.Buffer
@@ -1246,8 +1237,6 @@ func (g *Generator) generateHeader() {
 		g.P("*/")
 	}
 
-	g.P("package ", name)
-	g.P()
 }
 
 // PrintComments prints any comments from the source .proto file.
@@ -1320,11 +1309,6 @@ func (g *Generator) generateImports() {
 		p.GenerateImports(g.file)
 		g.P()
 	}
-	g.P("// Reference imports to suppress errors if they are not otherwise used.")
-	g.P("var _ = ", g.Pkg["proto"], ".Marshal")
-	g.P("var _ = ", g.Pkg["fmt"], ".Errorf")
-	g.P("var _ = ", g.Pkg["math"], ".Inf")
-	g.P()
 }
 
 func (g *Generator) generateImported(id *ImportedDescriptor) {
@@ -1593,23 +1577,23 @@ func (g *Generator) GoType(message *Descriptor, field *descriptor.FieldDescripto
 	// TODO: Options.
 	switch *field.Type {
 	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-		typ, wire = "float64", "fixed64"
+		typ, wire = "number", "fixed64"
 	case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-		typ, wire = "float32", "fixed32"
+		typ, wire = "number", "fixed32"
 	case descriptor.FieldDescriptorProto_TYPE_INT64:
-		typ, wire = "int64", "varint"
+		typ, wire = "number", "varint"
 	case descriptor.FieldDescriptorProto_TYPE_UINT64:
-		typ, wire = "uint64", "varint"
+		typ, wire = "number", "varint"
 	case descriptor.FieldDescriptorProto_TYPE_INT32:
-		typ, wire = "int32", "varint"
+		typ, wire = "number", "varint"
 	case descriptor.FieldDescriptorProto_TYPE_UINT32:
-		typ, wire = "uint32", "varint"
+		typ, wire = "number", "varint"
 	case descriptor.FieldDescriptorProto_TYPE_FIXED64:
-		typ, wire = "uint64", "fixed64"
+		typ, wire = "number", "fixed64"
 	case descriptor.FieldDescriptorProto_TYPE_FIXED32:
-		typ, wire = "uint32", "fixed32"
+		typ, wire = "number", "fixed32"
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
-		typ, wire = "bool", "varint"
+		typ, wire = "boolean", "varint"
 	case descriptor.FieldDescriptorProto_TYPE_STRING:
 		typ, wire = "string", "bytes"
 	case descriptor.FieldDescriptorProto_TYPE_GROUP:
@@ -1624,13 +1608,13 @@ func (g *Generator) GoType(message *Descriptor, field *descriptor.FieldDescripto
 		desc := g.ObjectNamed(field.GetTypeName())
 		typ, wire = g.TypeName(desc), "varint"
 	case descriptor.FieldDescriptorProto_TYPE_SFIXED32:
-		typ, wire = "int32", "fixed32"
+		typ, wire = "number", "fixed32"
 	case descriptor.FieldDescriptorProto_TYPE_SFIXED64:
-		typ, wire = "int64", "fixed64"
+		typ, wire = "number", "fixed64"
 	case descriptor.FieldDescriptorProto_TYPE_SINT32:
-		typ, wire = "int32", "zigzag32"
+		typ, wire = "number", "zigzag32"
 	case descriptor.FieldDescriptorProto_TYPE_SINT64:
-		typ, wire = "int64", "zigzag64"
+		typ, wire = "number", "zigzag64"
 	default:
 		g.Fail("unknown type for", field.GetName())
 	}
@@ -1712,7 +1696,7 @@ func (g *Generator) generateMessage(message *Descriptor) {
 	oneofInsertPoints := make(map[int32]int)                           // oneof_index => offset of g.Buffer
 
 	g.PrintComments(message.path)
-	g.P("type ", ccTypeName, " struct {")
+	g.P("export class ", ccTypeName, " {")
 	g.In()
 
 	// allocNames finds a conflict-free variation of the given strings,
@@ -1744,7 +1728,7 @@ func (g *Generator) generateMessage(message *Descriptor) {
 		// ordering can change generated Method/Field names.
 		base := CamelCase(*field.Name)
 		ns := allocNames(base, "Get"+base)
-		fieldName, fieldGetterName := ns[0], ns[1]
+		fieldName, fieldGetterName := *field.Name, ns[1]
 		typename, wiretype := g.GoType(message, field)
 		jsonName := *field.Name
 		tag := fmt.Sprintf("protobuf:%s json:%q", g.goTag(message, field, wiretype), jsonName+",omitempty")
@@ -1837,7 +1821,7 @@ func (g *Generator) generateMessage(message *Descriptor) {
 		}
 
 		g.PrintComments(fmt.Sprintf("%s,%d,%d", message.path, messageFieldPath, i))
-		g.P(fieldName, "\t", typename, "\t`", tag, "`")
+		g.P(fieldName, ":\t\t", typename, ";")
 		g.RecordTypeUse(field.GetTypeName())
 	}
 	if len(message.ExtensionRange) > 0 {
@@ -1866,70 +1850,8 @@ func (g *Generator) generateMessage(message *Descriptor) {
 		g.Buffer.Write(rem)
 	}
 
-	// Reset, String and ProtoMessage methods.
-	g.P("func (m *", ccTypeName, ") Reset() { *m = ", ccTypeName, "{} }")
-	g.P("func (m *", ccTypeName, ") String() string { return ", g.Pkg["proto"], ".CompactTextString(m) }")
-	g.P("func (*", ccTypeName, ") ProtoMessage() {}")
-	var indexes []string
-	for m := message; m != nil; m = m.parent {
-		indexes = append([]string{strconv.Itoa(m.index)}, indexes...)
-	}
-	g.P("func (*", ccTypeName, ") Descriptor() ([]byte, []int) { return ", g.file.VarName(), ", []int{", strings.Join(indexes, ", "), "} }")
-	// TODO: Revisit the decision to use a XXX_WellKnownType method
-	// if we change proto.MessageName to work with multiple equivalents.
-	if message.file.GetPackage() == "google.protobuf" && wellKnownTypes[message.GetName()] {
-		g.P("func (*", ccTypeName, `) XXX_WellKnownType() string { return "`, message.GetName(), `" }`)
-	}
-
 	// Extension support methods
 	var hasExtensions, isMessageSet bool
-	if len(message.ExtensionRange) > 0 {
-		hasExtensions = true
-		// message_set_wire_format only makes sense when extensions are defined.
-		if opts := message.Options; opts != nil && opts.GetMessageSetWireFormat() {
-			isMessageSet = true
-			g.P()
-			g.P("func (m *", ccTypeName, ") Marshal() ([]byte, error) {")
-			g.In()
-			g.P("return ", g.Pkg["proto"], ".MarshalMessageSet(&m.XXX_InternalExtensions)")
-			g.Out()
-			g.P("}")
-			g.P("func (m *", ccTypeName, ") Unmarshal(buf []byte) error {")
-			g.In()
-			g.P("return ", g.Pkg["proto"], ".UnmarshalMessageSet(buf, &m.XXX_InternalExtensions)")
-			g.Out()
-			g.P("}")
-			g.P("func (m *", ccTypeName, ") MarshalJSON() ([]byte, error) {")
-			g.In()
-			g.P("return ", g.Pkg["proto"], ".MarshalMessageSetJSON(&m.XXX_InternalExtensions)")
-			g.Out()
-			g.P("}")
-			g.P("func (m *", ccTypeName, ") UnmarshalJSON(buf []byte) error {")
-			g.In()
-			g.P("return ", g.Pkg["proto"], ".UnmarshalMessageSetJSON(buf, &m.XXX_InternalExtensions)")
-			g.Out()
-			g.P("}")
-			g.P("// ensure ", ccTypeName, " satisfies proto.Marshaler and proto.Unmarshaler")
-			g.P("var _ ", g.Pkg["proto"], ".Marshaler = (*", ccTypeName, ")(nil)")
-			g.P("var _ ", g.Pkg["proto"], ".Unmarshaler = (*", ccTypeName, ")(nil)")
-		}
-
-		g.P()
-		g.P("var extRange_", ccTypeName, " = []", g.Pkg["proto"], ".ExtensionRange{")
-		g.In()
-		for _, r := range message.ExtensionRange {
-			end := fmt.Sprint(*r.End - 1) // make range inclusive on both ends
-			g.P("{", r.Start, ", ", end, "},")
-		}
-		g.Out()
-		g.P("}")
-		g.P("func (*", ccTypeName, ") ExtensionRangeArray() []", g.Pkg["proto"], ".ExtensionRange {")
-		g.In()
-		g.P("return extRange_", ccTypeName)
-		g.Out()
-		g.P("}")
-	}
-
 	// Default constants
 	defNames := make(map[*descriptor.FieldDescriptorProto]string)
 	for _, field := range message.Field {
