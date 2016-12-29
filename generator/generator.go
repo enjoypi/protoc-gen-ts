@@ -676,32 +676,72 @@ func RegisterUniquePackageName(pkg string, f *FileDescriptor) string {
 	return pkg
 }
 
-var isGoKeyword = map[string]bool{
+var isTsKeyword = map[string]bool{
+	"abstract":    true,
+	"any":         true,
+	"as":          true,
+	"async":       true,
+	"await":       true,
+	"boolean":     true,
 	"break":       true,
 	"case":        true,
-	"chan":        true,
+	"catch":       true,
+	"class":       true,
 	"const":       true,
+	"constructor": true,
 	"continue":    true,
+	"debugger":    true,
+	"declare":     true,
 	"default":     true,
+	"delete":      true,
+	"do":          true,
 	"else":        true,
-	"defer":       true,
-	"fallthrough": true,
+	"enum":        true,
+	"export":      true,
+	"extends":     true,
+	"false":       true,
+	"finally":     true,
 	"for":         true,
-	"func":        true,
-	"go":          true,
-	"goto":        true,
+	"from":        true,
+	"function":    true,
+	"get":         true,
 	"if":          true,
+	"implements":  true,
 	"import":      true,
+	"in":          true,
+	"instanceof":  true,
 	"interface":   true,
-	"map":         true,
+	"is":          true,
+	"let":         true,
+	"module":      true,
+	"namespace":   true,
+	"new":         true,
+	"null":        true,
+	"number":      true,
+	"of":          true,
 	"package":     true,
-	"range":       true,
+	"private":     true,
+	"protected":   true,
+	"public":      true,
+	"require":     true,
 	"return":      true,
-	"select":      true,
-	"struct":      true,
+	"set":         true,
+	"static":      true,
+	"string":      true,
+	"super":       true,
 	"switch":      true,
+	"symbol":      true,
+	"this":        true,
+	"throw":       true,
+	"true":        true,
+	"try":         true,
 	"type":        true,
+	"typeof":      true,
 	"var":         true,
+	"void":        true,
+	"while":       true,
+	"with":        true,
+	"yield":       true,
 }
 
 // defaultGoPackage returns the package name to use,
@@ -717,7 +757,7 @@ func (g *Generator) defaultGoPackage() string {
 
 	p = strings.Map(badToUnderscore, p)
 	// Identifier must not be keyword: insert _.
-	if isGoKeyword[p] {
+	if isTsKeyword[p] {
 		p = "_" + p
 	}
 	// Identifier must not begin with digit: insert _.
@@ -1302,9 +1342,9 @@ func (g *Generator) generateImports() {
 		if _, ok := g.usedPackages[pname]; !ok {
 			pname = "_"
 		}
-		typename:=*(fd.MessageType[0].Name)
-		noext:=strings.TrimSuffix(s, filepath.Ext(s))
-		g.P("import {", typename, "} from ", strconv.Quote("./" + noext), ";")
+		typename := *(fd.MessageType[0].Name)
+		noext := strings.TrimSuffix(s, filepath.Ext(s))
+		g.P("import {", typename, "} from ", strconv.Quote("./"+noext), ";")
 	}
 	g.P()
 	// TODO: may need to worry about uniqueness across plugins
@@ -1951,7 +1991,7 @@ func (g *Generator) generateMessage(message *Descriptor) {
 	// Field getters
 	var getters []getterSymbol
 	for _, field := range message.Field {
-		break;
+		break
 		oneof := field.OneofIndex != nil
 
 		fname := fieldNames[field]
