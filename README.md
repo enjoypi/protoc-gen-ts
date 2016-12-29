@@ -1,6 +1,7 @@
 # protoc-gen-ts
 Typescript support for Protocol Buffers
 
+## mail.proto
 ```protobuf
 syntax = "proto3";
 
@@ -9,16 +10,17 @@ import "languages.proto";
 package proto;
 
 message Mail {
-    Languages subjects = 1; // <language, subject>
-    Languages bodies = 2; // <language, body>
+    Languages subjects = 1;         // <language, subject>
+    Languages bodies = 2;           // <language, body>
     map<uint64, uint32> assets = 3; // <assetID, amount>
-    repeated uint64 maps = 4; // mapID list
+    repeated uint64 maps = 4;       // mapID list
     string reason = 5;
     uint64 time = 6;
     string creator = 7;
 }
 ```
 
+## mail.ts
 ```ts
 import {Languages} from "./languages";
 
