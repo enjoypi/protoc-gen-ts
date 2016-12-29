@@ -43,6 +43,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -1301,7 +1302,9 @@ func (g *Generator) generateImports() {
 		if _, ok := g.usedPackages[pname]; !ok {
 			pname = "_"
 		}
-		g.P("import ", pname, " ", strconv.Quote(importPath))
+		typename:=*(fd.MessageType[0].Name)
+		noext:=strings.TrimSuffix(s, filepath.Ext(s))
+		g.P("import {", typename, "} from ", strconv.Quote("./" + noext), ";")
 	}
 	g.P()
 	// TODO: may need to worry about uniqueness across plugins
@@ -1563,7 +1566,7 @@ func needsStar(typ descriptor.FieldDescriptorProto_Type) bool {
 // package name followed by the item name.
 // The result always has an initial capital.
 func (g *Generator) TypeName(obj Object) string {
-	return g.DefaultPackageName(obj) + CamelCaseSlice(obj.TypeName())
+	return CamelCaseSlice(obj.TypeName())
 }
 
 // TypeNameWithPackage is like TypeName, but always includes the package
@@ -1601,7 +1604,7 @@ func (g *Generator) GoType(message *Descriptor, field *descriptor.FieldDescripto
 		typ, wire = "*"+g.TypeName(desc), "group"
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 		desc := g.ObjectNamed(field.GetTypeName())
-		typ, wire = "*"+g.TypeName(desc), "bytes"
+		typ, wire = g.TypeName(desc), "bytes"
 	case descriptor.FieldDescriptorProto_TYPE_BYTES:
 		typ, wire = "[]byte", "bytes"
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
@@ -1619,7 +1622,7 @@ func (g *Generator) GoType(message *Descriptor, field *descriptor.FieldDescripto
 		g.Fail("unknown type for", field.GetName())
 	}
 	if isRepeated(field) {
-		typ = "[]" + typ
+		typ = "Array<" + typ + ">"
 	} else if message != nil && message.proto3() {
 		return
 	} else if field.OneofIndex != nil && message != nil {
@@ -1782,7 +1785,7 @@ func (g *Generator) generateMessage(message *Descriptor) {
 					valType = strings.TrimPrefix(valType, "*")
 				}
 
-				typename = fmt.Sprintf("map[%s]%s", keyType, valType)
+				typename = fmt.Sprintf("Array<[%s,%s]>", keyType, valType)
 				mapFieldTypes[field] = typename // record for the getter generation
 
 				tag += fmt.Sprintf(" protobuf_key:%s protobuf_val:%s", keyTag, valTag)
@@ -1948,6 +1951,7 @@ func (g *Generator) generateMessage(message *Descriptor) {
 	// Field getters
 	var getters []getterSymbol
 	for _, field := range message.Field {
+		break;
 		oneof := field.OneofIndex != nil
 
 		fname := fieldNames[field]
