@@ -1609,9 +1609,10 @@ func (g *Generator) GoType(message *Descriptor, field *descriptor.FieldDescripto
 	return
 }
 
+// ClassConstructor accomplishes the right *.ts file
 func (g *Generator) ClassConstructor(message *Descriptor, field *descriptor.FieldDescriptorProto, fieldname string) {
 	if isRepeated(field) {
-		g.P("\t\t", "this.", fieldname, " = ", "[];")
+		g.P("\t", "this.", fieldname, " = ", "[];")
 		return
 	}
 
@@ -1629,24 +1630,24 @@ func (g *Generator) ClassConstructor(message *Descriptor, field *descriptor.Fiel
 		descriptor.FieldDescriptorProto_TYPE_SFIXED64,
 		descriptor.FieldDescriptorProto_TYPE_SINT32,
 		descriptor.FieldDescriptorProto_TYPE_SINT64:
-		g.P("\t\t", "this.", fieldname, " = ", "0;")
+		g.P("\t", "this.", fieldname, " = ", "0;")
 
 		//boolean
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
-		g.P("\t\t", "this.", fieldname, " = ", "true;")
+		g.P("\t", "this.", fieldname, " = ", "true;")
 
 		//string
 	case descriptor.FieldDescriptorProto_TYPE_STRING:
-		g.P("\t\t", "this.", fieldname, " = ", `"";`)
+		g.P("\t", "this.", fieldname, " = ", `"";`)
 
 	// case descriptor.FieldDescriptorProto_TYPE_GROUP:
 
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 		typename, _ := g.GoType(message, field)
-		g.P("\t\t", "this.", fieldname, " = ", "new ", typename, "();")
+		g.P("\t", "this.", fieldname, " = ", "new ", typename, "();")
 
 	case descriptor.FieldDescriptorProto_TYPE_BYTES:
-		g.P("\t\t", "this.", fieldname, " = ", `"";`)
+		g.P("\t", "this.", fieldname, " = ", `"";`)
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
 		g.P()
 
@@ -1869,7 +1870,7 @@ func (g *Generator) generateMessage(message *Descriptor) {
 		g.RecordTypeUse(field.GetTypeName())
 	}
 
-	g.P("\t}")
+	g.P("}")
 
 	g.Out()
 	g.P("}")
